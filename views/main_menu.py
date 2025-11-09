@@ -1,4 +1,3 @@
-# views/main_menu.py
 import discord
 from discord.ui import View, Button, Modal, TextInput
 from sbc.optimizer import get_sbc_solution
