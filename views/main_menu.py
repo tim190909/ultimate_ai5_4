@@ -43,7 +43,7 @@ class MainMenu(View):
     async def watchlist_button(self, button: Button, interaction: discord.Interaction):
         await interaction.response.defer()
         user_id = str(interaction.user.id)
-        rows = await models.fetch_watchlist(user_id)
+        rows = await models.fetch_watchlist(user_id) # retourne liste de joueurs
         if not rows:
             await interaction.followup.send("Ta watchlist est vide.")
             return
@@ -76,7 +76,7 @@ class MainMenu(View):
             prices = [v for v,_ in hist]
             if prices:
                 variation = (prices[-1]-prices[0])/prices[0]*100
-                stats.append({"name":p["name"], "platform":p["platform"], "variation":variation})
+                stats.append({"name": p["name"], "platform": p["platform"], "variation": variation})
         stats.sort(key=lambda x: x["variation"], reverse=True)
         description = "\n".join([f"{s['name']} ({s['platform']}): {s['variation']:+.2f}%" for s in stats])
         embed = discord.Embed(title="Top 10 Variations", description=description, color=discord.Color.blue())
@@ -87,5 +87,5 @@ class MainMenu(View):
     async def sbc_button(self, button: Button, interaction: discord.Interaction):
         await interaction.response.defer()
         # Ici tu peux appeler ton optimizer SBC
-        solution = await models.get_cheapest_sbc_solution() # Exemple, à adapter
+        solution = await models.get_cheapest_sbc_solution() # exemple, à adapter
         await interaction.followup.send(f"La solution SBC la moins chère actuellement :\n{solution}")
