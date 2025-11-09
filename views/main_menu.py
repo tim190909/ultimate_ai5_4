@@ -35,7 +35,7 @@ class MainMenu(View):
         result = await mini_game_guess_price(str(interaction.user.id), real_price=15000)
         await interaction.followup.send(result)
 
-    @discord.ui.button(label="🧩 SBC Optimale", style=discord.ButtonStyle.orange, custom_id="btn_sbc")
+    @discord.ui.button(label="🧩 SBC Optimale", style=discord.ButtonStyle.primary, custom_id="btn_sbc")
     async def sbc_button(self, button: Button, interaction: discord.Interaction):
         await interaction.response.send_modal(SBCModal())
 
