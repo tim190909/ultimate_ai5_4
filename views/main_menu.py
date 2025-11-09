@@ -1,9 +1,10 @@
 # views/main_menu.py
 import discord
 from discord.ui import View, Button
-from db import models # accès à la DB
+from sbc.optimizer import get_sbc_solution # ton module pour SBC
 from futbin.scraper import fetch_popular_players, fetch_player_image, is_future_upgrade
 from analysis.scorer import compute_score
+from db import models
 
 class MainMenu(View):
     def __init__(self):
@@ -13,11 +14,11 @@ class MainMenu(View):
     @discord.ui.button(label="📈 Recommandations", style=discord.ButtonStyle.green, custom_id="btn_recommend")
     async def recommend_button(self, button: Button, interaction: discord.Interaction):
         await interaction.response.defer()
-        players = await fetch_popular_players("ps")
+        players = await fetch_popular_players("ps") # récupérer les joueurs populaires
         embeds = []
         for p in players[:5]:
             hist = await models.get_price_history(p["id"], p["platform"], limit=7)
-            prices = [v for v,_ in hist]
+            prices = [v for v, _ in hist]
             future_upgrade = await is_future_upgrade(p["id"])
             score_data = compute_score(prices, future_upgrade=future_upgrade)
             img_url = await fetch_player_image(p["id"])
@@ -43,19 +44,19 @@ class MainMenu(View):
     async def watchlist_button(self, button: Button, interaction: discord.Interaction):
         await interaction.response.defer()
         user_id = str(interaction.user.id)
-        rows = await models.fetch_watchlist(user_id) # retourne liste de joueurs
+        rows = await models.get_user_watchlist(user_id)
         if not rows:
             await interaction.followup.send("Ta watchlist est vide.")
             return
-        for player in rows:
-            hist = await models.get_price_history(player["player_id"], player["platform"], limit=7)
-            prices = [v for v,_ in hist]
-            future_upgrade = await is_future_upgrade(player["player_id"])
+        for player_id, platform in rows:
+            hist = await models.get_price_history(player_id, platform, limit=7)
+            prices = [v for v, _ in hist]
+            future_upgrade = await is_future_upgrade(player_id)
             score_data = compute_score(prices, future_upgrade=future_upgrade)
-            img_url = await fetch_player_image(player["player_id"])
+            img_url = await fetch_player_image(player_id)
             if score_data and img_url:
                 embed = discord.Embed(
-                    title=f"{player['player_name']} ({player['platform']})",
+                    title=f"{player_id} ({platform})",
                     description=f"Score: {score_data['score']:.2f}\n"
                                 f"Risque: {score_data['risk']}\n"
                                 f"Prix net: {int(score_data['net_price'])}\n"
@@ -73,9 +74,9 @@ class MainMenu(View):
         stats = []
         for p in players[:10]:
             hist = await models.get_price_history(p["id"], p["platform"], limit=7)
-            prices = [v for v,_ in hist]
+            prices = [v for v, _ in hist]
             if prices:
-                variation = (prices[-1]-prices[0])/prices[0]*100
+                variation = (prices[-1] - prices[0]) / prices[0] * 100
                 stats.append({"name": p["name"], "platform": p["platform"], "variation": variation})
         stats.sort(key=lambda x: x["variation"], reverse=True)
         description = "\n".join([f"{s['name']} ({s['platform']}): {s['variation']:+.2f}%" for s in stats])
@@ -83,9 +84,23 @@ class MainMenu(View):
         await interaction.followup.send(embed=embed)
 
     # ---------------- SBC Optimizer ----------------
-    @discord.ui.button(label="💡 SBC Optimale", style=discord.ButtonStyle.primary, custom_id="btn_sbo")
+    @discord.ui.button(label="💡 SBC Optimale", style=discord.ButtonStyle.red, custom_id="btn_sbc")
     async def sbc_button(self, button: Button, interaction: discord.Interaction):
-        await interaction.response.defer()
-        # Ici tu peux appeler ton optimizer SBC
-        solution = await models.get_cheapest_sbc_solution() # exemple, à adapter
-        await interaction.followup.send(f"La solution SBC la moins chère actuellement :\n{solution}")
+        await interaction.response.send_modal(SBCModal())
+
+# ---------------- Modal SBC ----------------
+class SBCModal(discord.ui.Modal, title="Optimisation SBC"):
+    sbc_name = discord.ui.TextInput(label="Nom du SBC", placeholder="Ex: League SBC", required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        solution = await get_sbc_solution(self.sbc_name.value)
+        if solution:
+            description = "\n".join([f"{player['name']} ({player['price']} coins)" for player in solution["players"]])
+            embed = discord.Embed(
+                title=f"Solution SBC: {self.sbc_name.value}",
+                description=f"Coût total: {solution['total_cost']} coins\n\n{description}",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("SBC introuvable ou erreur lors de la récupération.", ephemeral=True)
