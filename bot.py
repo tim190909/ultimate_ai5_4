@@ -7,6 +7,7 @@ from config import DISCORD_TOKEN
 from db.database import init_db
 from cogs.menu import Menu # Pour charger /menu
 
+PORT = int(os.environ.get("PORT"), 10000)
 INTENTS = discord.Intents.default()
 INTENTS.message_content = True
 
