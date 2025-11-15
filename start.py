@@ -1,30 +1,38 @@
 import os
 import asyncio
 from aiohttp import web
-from bot import bot # ton bot.py principal
+from bot import bot # ton bot existant
 
-# -------------------------
-# Serveur web minimal pour Render
-# -------------------------
+# ------------------------------
+# Fonction pour démarrer le bot
+# ------------------------------
+async def start_bot():
+    await bot.start(os.getenv("DISCORD_TOKEN"))
+
+# ------------------------------
+# Petit serveur web pour Render
+# ------------------------------
 async def handle(request):
-    return web.Response(text="Bot en ligne !")
+    return web.Response(text="🤖 Bot en ligne !")
 
-async def init_web_server():
+async def main():
+    # Crée l'application web
     app = web.Application()
     app.add_routes([web.get("/", handle)])
-    port = int(os.environ.get("PORT", 10000)) # Render fournit le port via env
+
+    # Setup du runner
     runner = web.AppRunner(app)
     await runner.setup()
+
+    # Port fourni par Render
+    port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print(f"🌐 Web server lancé sur le port {port}")
+    print(f"🌐 Serveur web lancé sur le port {port}")
 
-# -------------------------
-# Démarrage principal
-# -------------------------
-async def main():
-    await init_web_server() # keep-alive
-    bot.run(os.environ["DISCORD_TOKEN"]) # lance le bot Discord
+    # Lancer le bot Discord en parallèle
+    await start_bot()
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# Run le main asyncio
+asyncio.run(main())
+
