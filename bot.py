@@ -3,58 +3,39 @@ from discord.ext import commands
 import os
 import asyncio
 
-from config import DISCORD_TOKEN
-from db.database import init_db
-from cogs.menu import Menu # Pour charger /menu
-
-PORT = int(os.environ.get("PORT"), 10000)
-INTENTS = discord.Intents.default()
-INTENTS.message_content = True
+TOKEN = os.environ.get("DISCORD_TOKEN")
 
 class FutBot(commands.Bot):
     def __init__(self):
+        intents = discord.Intents.default()
+        intents.message_content = True # nécessaire pour lire les messages
+
         super().__init__(
             command_prefix="!",
-            intents=INTENTS,
-            description="FUT Trading Bot – Version 41.0"
+            intents=intents,
+            application_id=os.environ.get("APPLICATION_ID") # pour Render
         )
 
     async def setup_hook(self):
-        # 🔌 Initialisation base de données
-        await init_db()
-        print("✅ Base de données initialisée.")
+        # Charge automatiquement tous les cogs
+        for folder in ("cogs",):
+            for file in os.listdir(folder):
+                if file.endswith(".py"):
+                    await self.load_extension(f"{folder}.{file[:-3]}")
+        print("📦 Cogs chargés !")
 
-        # 📚 Chargement automatique des COGS
-        COGS = [
-            "cogs.menu",
-            "cogs.market",
-            "cogs.watchlist",
-            "cogs.alerts",
-            "cogs.forecast_ai"
-        ]
-        for cog in COGS:
-            try:
-                await self.load_extension(cog)
-                print(f"✔️ Cog chargé : {cog}")
-            except Exception as e:
-                print(f"❌ Erreur chargement {cog} : {e}")
-
-        # 🔁 Synchronisation slash commands
+        # Synchronisation slash commands
         try:
             await self.tree.sync()
-            print("✨ Commandes slash synchronisées !")
+            print("✨ Slash commands synchronisées !")
         except Exception as e:
-            print("❌ Erreur synchronisation slash:", e)
+            print("❌ Erreur sync :", e)
 
-        # ⚡ Affichage du menu principal automatiquement
-        self.add_view(Menu()) # Permet que MainMenu soit actif sans interaction préalable
-
-# ---------------- RUN BOT ----------------
 bot = FutBot()
 
 @bot.event
 async def on_ready():
     print(f"🤖 Bot connecté : {bot.user}")
-    print("🚀 Version 41.0 démarrée avec succès !")
 
-bot.run(DISCORD_TOKEN)
+def run():
+    bot.run(TOKEN)
