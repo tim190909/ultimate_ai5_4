@@ -1,5 +1,8 @@
-discord.py
-aiohttp
+discord.py==2.4.0
 aiosqlite
-matplotlib
 python-dotenv
+aiohttp
+pandas
+numpy
+scikit-learn
+matplotlib
