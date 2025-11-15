@@ -3,39 +3,77 @@ from discord.ext import commands
 import os
 import asyncio
 
-TOKEN = os.environ.get("DISCORD_TOKEN")
+from db.database import init_db
+from tasks.scheduler import start_scheduled_tasks
 
-class FutBot(commands.Bot):
-    def __init__(self):
-        intents = discord.Intents.default()
-        intents.message_content = True # nécessaire pour lire les messages
+TOKEN = os.getenv("DISCORD_TOKEN")
+PORT = int(os.getenv("PORT", 10000)) # Render Free fournit un PORT
 
-        super().__init__(
-            command_prefix="!",
-            intents=intents,
-            application_id=os.environ.get("APPLICATION_ID") # pour Render
-        )
+INTENTS = discord.Intents.default()
+INTENTS.message_content = True
 
-    async def setup_hook(self):
-        # Charge automatiquement tous les cogs
-        for folder in ("cogs",):
-            for file in os.listdir(folder):
-                if file.endswith(".py"):
-                    await self.load_extension(f"{folder}.{file[:-3]}")
-        print("📦 Cogs chargés !")
+bot = commands.Bot(
+    command_prefix="!",
+    intents=INTENTS,
+    help_command=None,
+    description="FUT Trading Bot – Version 41.0"
+)
 
-        # Synchronisation slash commands
-        try:
-            await self.tree.sync()
-            print("✨ Slash commands synchronisées !")
-        except Exception as e:
-            print("❌ Erreur sync :", e)
-
-bot = FutBot()
+# Liste des Cogs
+COGS = [
+    "cogs.menu",
+    "cogs.market",
+    "cogs.watchlist",
+    "cogs.alerts",
+    "cogs.forecast_ai"
+]
 
 @bot.event
 async def on_ready():
     print(f"🤖 Bot connecté : {bot.user}")
 
-def run():
-    bot.run(TOKEN)
+    # Initialisation DB
+    await init_db()
+
+    # Charger les Cogs
+    for cog in COGS:
+        try:
+            await bot.load_extension(cog)
+            print(f"✔️ Cog chargé : {cog}")
+        except Exception as e:
+            print(f"❌ Erreur chargement {cog} : {e}")
+
+    # Synchronisation slash commands
+    try:
+        await bot.tree.sync()
+        print("✨ Commandes slash synchronisées !")
+    except Exception as e:
+        print(f"❌ Erreur sync : {e}")
+
+    # Démarrage du scheduler
+    start_scheduled_tasks(bot)
+
+    print("🚀 Bot prêt et en ligne 24/7 !")
+
+# Mini serveur web pour Render Free
+from aiohttp import web
+
+async def handle(request):
+    return web.Response(text="Bot en ligne ✅")
+
+app = web.Application()
+app.router.add_get("/", handle)
+
+async def start_web():
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+    print(f"🌐 Serveur web démarré sur le port {PORT}")
+
+async def main():
+    await start_web()
+    await bot.start(TOKEN)
+
+# Lancer le bot + serveur web
+asyncio.run(main())
