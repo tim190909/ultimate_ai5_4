@@ -22,7 +22,7 @@ bot = commands.Bot(
 # Liste des Cogs
 COGS = [
     "cogs.menu",
-    "cogs.market",
+    "cogs.market",]
    import discord
 from discord.ext import commands
 import os
