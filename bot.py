@@ -1,44 +1,24 @@
 import discord
 from discord.ext import commands
-import os
+import threading
+from flask import Flask
 import asyncio
+import os
 
+from config import DISCORD_TOKEN, ALERT_CHANNEL, CHECK_INTERVAL
 from db.database import init_db
 from tasks.scheduler import start_scheduled_tasks
 
-TOKEN = os.getenv("DISCORD_TOKEN")
-PORT = int(os.getenv("PORT", 10000)) # Render Free fournit un PORT
-
-INTENTS = discord.Intents.default()
-INTENTS.message_content = True
-
-bot = commands.Bot(
-    command_prefix="!",
-    intents=INTENTS,
-    help_command=None,
-    description="FUT Trading Bot – Version 41.0"
-)
-
-# Liste des Cogs
-COGS = [
-    "cogs.menu",
-    "cogs.market",]
-import discord
-from discord.ext import commands
-import os
-import asyncio
-from config import DISCORD_TOKEN, CHECK_INTERVAL
-from db.database import init_db
-from tasks.scheduler import start_scheduled_tasks
-
-INTENTS = discord.Intents.default()
-INTENTS.message_content = True
+# ------------------------
+# BOT DISCORD
+# ------------------------
+intents = discord.Intents.default()
+intents.message_content = True
 
 bot = commands.Bot(
     command_prefix="!",
-    intents=INTENTS,
-    help_command=None,
-    description="FUT Trading Bot – Version 42 Render Free"
+    intents=intents,
+    description="FUT Trading Bot – Version 41.0 Render Ready"
 )
 
 COGS = [
@@ -51,12 +31,9 @@ COGS = [
 
 @bot.event
 async def on_ready():
-    print(f"✅ Bot connecté : {bot.user}")
-    
-    # Base de données
-    await init_db()
+    print(f"🤖 Bot connecté : {bot.user}")
 
-    # Charger les cogs
+async def load_cogs():
     for cog in COGS:
         try:
             await bot.load_extension(cog)
@@ -64,12 +41,27 @@ async def on_ready():
         except Exception as e:
             print(f"❌ Erreur chargement {cog} : {e}")
 
-    # Synchroniser les slash commands
-    await bot.tree.sync()
-    print("✔️ Commandes slash synchronisées")
+# ------------------------
+# MINI SERVEUR FLASK POUR RENDER
+# ------------------------
+app = Flask("")
 
-    # Lancer les tâches automatiques
+@app.route("/")
+def home():
+    return "Bot Discord est actif ✅"
+
+def run_flask():
+    app.run(host="0.0.0.0", port=10000)
+
+threading.Thread(target=run_flask).start()
+
+# ------------------------
+# LANCER BOT
+# ------------------------
+async def main():
+    await init_db()
+    await load_cogs()
     start_scheduled_tasks(bot)
-    print("🚀 Version 42 démarrée avec succès !")
+    await bot.start(DISCORD_TOKEN)
 
-bot.run(DISCORD_TOKEN)
+asyncio.run(main())
