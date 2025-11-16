@@ -23,7 +23,7 @@ bot = commands.Bot(
 COGS = [
     "cogs.menu",
     "cogs.market",]
-   import discord
+import discord
 from discord.ext import commands
 import os
 import asyncio
