@@ -1,5 +1,5 @@
 from discord.ext import tasks
-from utils.price_fetcher import get_player_price
+from utils.futwiz_api import get_player_price
 from db.models import fetch_all
 from config import ALERT_CHANNEL
 import discord
