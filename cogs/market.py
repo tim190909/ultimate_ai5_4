@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils.futwiz_api import get_player_price
+from utils.price_fetcher import get_player_price
 
 class Market(commands.Cog):
     def __init__(self, bot):
