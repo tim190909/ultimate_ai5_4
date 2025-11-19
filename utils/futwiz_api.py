@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 BASE_URL = "https://www.futwiz.com/en/fc24/player/{}"
 
 
-async def get_player_prices(player_id: int):
+async def get_player_price(player_id: int):
     """
     Récupère les prix PS / Xbox / PC pour un joueur via Futwiz.
     :return: dict { "ps": prix, "xbox": prix, "pc": prix } ou None
