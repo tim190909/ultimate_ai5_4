@@ -1,3 +1,4 @@
+# views/main_menu.py
 import discord
 from discord.ui import View, Button, Modal, TextInput
 from utils.price_fetcher import get_player_price, search_player
@@ -49,7 +50,14 @@ class PlayerIdModal(Modal, title="Récupérer le prix d'un joueur"):
     player_id = TextInput(label="Nom du joueur Futwiz", placeholder="Ex: Harry Kane")
 
     async def on_submit(self, interaction: discord.Interaction):
-        name = self.player_id.value
-        slug = await search_player(name)
+        name = self.player_id.value.strip()
+        slug = await search_player(name) # recherche le joueur sur Futwiz FC26
         if not slug:
-            await interaction.response.send_message(f"❌
+            await interaction.response.send_message(f"❌ Joueur '{name}' introuvable.", ephemeral=True)
+            return
+
+        price = await get_player_price(slug)
+        if price is not None:
+            await interaction.response.send_message(f"💰 Prix du joueur '{name}': {price} crédits", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Impossible de récupérer le prix pour '{name}'", ephemeral=True)
