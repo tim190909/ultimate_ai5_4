@@ -1,61 +1,49 @@
-# utils/price_fetcher.py
 import aiohttp
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://www.futwiz.com/fc26/player/"
 
-async def search_player(player_name: str) -> int | None:
+async def search_player(name: str) -> str | None:
     """
-    Recherche un joueur sur Futwiz FC26 et retourne son ID.
-    :param player_name: Nom complet du joueur
-    :return: ID Futwiz ou None si non trouvé
+    Recherche un joueur sur Futwiz par nom et retourne le slug.
+    Exemple : "Harry Kane" → "harry-kane"
     """
+    name_slug = name.lower().replace(" ", "-")
+    url = BASE_URL + name_slug + "/"
+
     try:
         async with aiohttp.ClientSession() as session:
-            # On remplace les espaces par des tirets et tout en minuscule pour l'URL
-            search_name = player_name.lower().replace(" ", "-")
-            url = f"{BASE_URL}{search_name}/"
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    print(f"Erreur recherche joueur {player_name}: Status {resp.status}")
-                    return None
-                text = await resp.text()
-                soup = BeautifulSoup(text, "html.parser")
-                
-                # Futwiz met l'ID dans un script JSON sur la page
-                scripts = soup.find_all("script")
-                for script in scripts:
-                    if "window.playerData" in script.text:
-                        text = script.text
-                        start = text.find('"id":') + 5
-                        end = text.find(',', start)
-                        player_id = int(text[start:end])
-                        return player_id
-        return None
+            async with session.get(url) as response:
+                if response.status == 200:
+                    return name_slug
+                return None
     except Exception as e:
-        print(f"Exception search_player({player_name}): {e}")
+        print(f"Erreur search_player({name}): {e}")
         return None
 
-async def get_player_price(player_id: int) -> int | None:
+async def get_player_price(player_slug: str, platform: str = "ps") -> int | None:
     """
-    Récupère le prix du joueur via son ID sur Futwiz FC26.
-    :param player_id: ID Futwiz du joueur
-    :return: Prix en crédits ou None si erreur
+    Récupère le prix du joueur depuis Futwiz.
+    :param player_slug: slug du joueur (ex: "harry-kane")
+    :param platform: "ps", "xbox", "pc"
+    :return: prix en crédits ou None
     """
+    url = BASE_URL + f"{player_slug}/"
+
     try:
         async with aiohttp.ClientSession() as session:
-            # Futwiz fournit les prix via une page JSON
-            url = f"https://www.futwiz.com/fc26/playerprices?id={player_id}"
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    print(f"Erreur récupération prix ID {player_id}: Status {resp.status}")
+            async with session.get(url) as response:
+                if response.status != 200:
                     return None
-                data = await resp.json()
-                # Exemple simplifié: prix PS
-                price = data.get("prices", {}).get("ps", {}).get("LCPrice")
-                if price:
-                    return int(price.replace(",", ""))
-        return None
+                html = await response.text()
+                soup = BeautifulSoup(html, "html.parser")
+
+                # Exemple : récupérer prix PS depuis la page
+                price_tag = soup.select_one(".price-box .ps .price") # À adapter si HTML change
+                if not price_tag:
+                    return None
+                price_text = price_tag.text.strip().replace(",", "").replace("€", "")
+                return int(price_text)
     except Exception as e:
-        print(f"Exception get_player_price({player_id}): {e}")
+        print(f"Erreur get_player_price({player_slug}): {e}")
         return None
