@@ -2,7 +2,7 @@
 import aiohttp
 
 # URL Futwiz FIFA 26 (non officielle)
-API_URL = "https://www.futwiz.com/en/fifa26/playerPrices?player={}"
+API_URL = "https://www.futwiz.com/fc26/player/{player_id}"
 
 async def get_player_price(player_id: int, platform: str = "ps") -> int | None:
     """
