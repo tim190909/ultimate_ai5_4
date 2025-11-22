@@ -1,35 +1,42 @@
-# utils/futwiz_api.py
 import aiohttp
-from bs4 import BeautifulSoup
 
-BASE_URL = "https://www.futwiz.com/en/fifa24/player/{player_id}"
+API_URL = "https://www.futwiz.com/en/fifa-26/playerPrices?player={}" # FC26
 
 async def get_player_price(player_id: int) -> int | None:
     """
-    Récupère le prix moyen d’un joueur depuis Futwiz.
-    :param player_id: ID Futwiz du joueur
-    :return: Prix moyen en crédits, ou None si erreur
+    Récupère le prix moyen d’un joueur depuis Futwiz FC26
     """
-    url = BASE_URL.format(player_id=player_id)
-
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    print(f"Futwiz API error: Status {resp.status}")
+            async with session.get(API_URL.format(player_id)) as response:
+                if response.status != 200:
+                    print(f"Futwiz API error: Status {response.status}")
                     return None
-
-                html = await resp.text()
-                soup = BeautifulSoup(html, "html.parser")
-
-                # Exemple : récupère le prix PS dans un span spécifique
-                price_span = soup.find("span", class_="price")
-                if not price_span:
-                    print(f"Futwiz: prix non trouvé pour {player_id}")
-                    return None
-
-                price_text = price_span.text.strip().replace(",", "").replace("€", "")
-                return int(price_text)
+                data = await response.json()
+                price_info = data.get("prices", {})
+                ps_price = price_info.get("ps", {}).get("LCPrice")
+                if ps_price:
+                    return int(ps_price.replace(",", ""))
+                return None
     except Exception as e:
         print(f"Exception get_player_price({player_id}): {e}")
         return None
+
+
+async def search_player(name: str) -> list[dict]:
+    """
+    Recherche un joueur par nom pour FC26
+    Retourne une liste de dicts : [{"id":12345,"name":"Mbappé"}]
+    """
+    SEARCH_URL = f"https://www.futwiz.com/en/fifa-26/searchPlayers?name={name}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(SEARCH_URL) as response:
+                if response.status != 200:
+                    print(f"Search API error: {response.status}")
+                    return []
+                data = await response.json()
+                return [{"id":p["id"], "name":p["name"]} for p in data.get("players", [])]
+    except Exception as e:
+        print(f"Exception search_player({name}): {e}")
+        return []

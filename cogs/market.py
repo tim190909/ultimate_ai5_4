@@ -1,7 +1,6 @@
-# cogs/market.py
 import discord
 from discord.ext import commands
-from utils.futwiz_api import get_player_price
+from utils.price_fetcher import get_player_price, search_player
 
 class Market(commands.Cog):
     def __init__(self, bot):
@@ -9,25 +8,30 @@ class Market(commands.Cog):
 
     @discord.app_commands.command(
         name="price",
-        description="Voir le prix Futwiz d’un joueur (ID)"
+        description="Voir le prix FUTWIZ d’un joueur (FC26)"
     )
-    async def price(self, interaction: discord.Interaction, futwiz_id: int):
-        # Appelle la fonction Futwiz
-        price = await get_player_price(futwiz_id)
+    async def price(self, interaction: discord.Interaction, player_name: str):
+        await interaction.response.defer()
+        results = await search_player(player_name)
+
+        if not results:
+            await interaction.followup.send("❌ Joueur introuvable.", ephemeral=True)
+            return
+
+        # Si plusieurs résultats, on prend le premier pour simplifier
+        player = results[0]
+        price = await get_player_price(player["id"])
 
         if price is None:
-            await interaction.response.send_message(
-                "❌ Impossible de récupérer le prix sur Futwiz.",
-                ephemeral=True
-            )
+            await interaction.followup.send("❌ Impossible de récupérer le prix.", ephemeral=True)
             return
 
         embed = discord.Embed(
-            title=f"Prix du joueur {futwiz_id}",
-            description=f"💰 **{price} crédits**",
+            title=f"Prix du joueur {player['name']}",
+            description=f"💰 **{price} crédits** (FC26)",
             color=discord.Color.green()
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Market(bot))
