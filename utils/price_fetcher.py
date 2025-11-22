@@ -1,42 +1,47 @@
+# utils/price_fetcher.py
 import aiohttp
 
-API_URL = "https://www.futwiz.com/en/fifa-26/playerPrices?player={}" # FC26
+# URL Futwiz FIFA 26 (non officielle)
+API_URL = "https://www.futwiz.com/en/fifa26/playerPrices?player={}"
 
-async def get_player_price(player_id: int) -> int | None:
+async def get_player_price(player_id: int, platform: str = "ps") -> int | None:
     """
-    Récupère le prix moyen d’un joueur depuis Futwiz FC26
+    Récupère le prix d'un joueur depuis Futwiz pour la plateforme choisie.
+    
+    :param player_id: ID Futwiz du joueur
+    :param platform: 'ps', 'xbox' ou 'pc'
+    :return: Prix en crédits ou None si impossible de récupérer
     """
+    platform = platform.lower()
+    if platform not in ("ps", "xbox", "pc"):
+        platform = "ps"
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(API_URL.format(player_id)) as response:
                 if response.status != 200:
                     print(f"Futwiz API error: Status {response.status}")
                     return None
+
                 data = await response.json()
-                price_info = data.get("prices", {})
-                ps_price = price_info.get("ps", {}).get("LCPrice")
-                if ps_price:
-                    return int(ps_price.replace(",", ""))
-                return None
+
+                # Futwiz retourne un dict avec l'ID du joueur comme clé
+                player_data = data.get(str(player_id))
+                if not player_data:
+                    print(f"Futwiz API error: Joueur {player_id} non trouvé")
+                    return None
+
+                prices = player_data.get("prices", {})
+                platform_info = prices.get(platform, {})
+                lc_price = platform_info.get("LCPrice")
+
+                if not lc_price:
+                    print(f"Futwiz API error: Prix LC non disponible pour {player_id} sur {platform}")
+                    return None
+
+                # Convertit "100,000" → 100000
+                return int(lc_price.replace(",", ""))
     except Exception as e:
         print(f"Exception get_player_price({player_id}): {e}")
         return None
 
-
-async def search_player(name: str) -> list[dict]:
-    """
-    Recherche un joueur par nom pour FC26
-    Retourne une liste de dicts : [{"id":12345,"name":"Mbappé"}]
-    """
-    SEARCH_URL = f"https://www.futwiz.com/en/fifa-26/searchPlayers?name={name}"
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(SEARCH_URL) as response:
-                if response.status != 200:
-                    print(f"Search API error: {response.status}")
-                    return []
-                data = await response.json()
-                return [{"id":p["id"], "name":p["name"]} for p in data.get("players", [])]
-    except Exception as e:
-        print(f"Exception search_player({name}): {e}")
-        return []
