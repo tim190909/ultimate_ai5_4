@@ -1,54 +1,61 @@
 # utils/price_fetcher.py
 import aiohttp
 from bs4 import BeautifulSoup
-import re
 
-BASE_URL = "https://www.futwiz.com/fc26"
+BASE_URL = "https://www.futwiz.com/fc26/player/"
 
-async def get_player_price(player_id: int) -> int | None:
-    url = f"{BASE_URL}/player/{player_id}"
+async def search_player(player_name: str) -> int | None:
+    """
+    Recherche un joueur sur Futwiz FC26 et retourne son ID.
+    :param player_name: Nom complet du joueur
+    :return: ID Futwiz ou None si non trouvé
+    """
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}) as resp:
+            # On remplace les espaces par des tirets et tout en minuscule pour l'URL
+            search_name = player_name.lower().replace(" ", "-")
+            url = f"{BASE_URL}{search_name}/"
+            async with session.get(url) as resp:
                 if resp.status != 200:
-                    print(f"Futwiz fetch error: Status {resp.status}")
+                    print(f"Erreur recherche joueur {player_name}: Status {resp.status}")
                     return None
-                html = await resp.text()
-                soup = BeautifulSoup(html, "html.parser")
+                text = await resp.text()
+                soup = BeautifulSoup(text, "html.parser")
                 
-                # Recherche du prix (exemple basé sur l'ancienne classe)
-                price_div = soup.find("div", class_="player-prices")  
-                if not price_div:
-                    print("Futwiz fetch error: prix non trouvé")
-                    return None
-                price_text = re.sub(r"[^\d]", "", price_div.get_text())
-                return int(price_text)
+                # Futwiz met l'ID dans un script JSON sur la page
+                scripts = soup.find_all("script")
+                for script in scripts:
+                    if "window.playerData" in script.text:
+                        text = script.text
+                        start = text.find('"id":') + 5
+                        end = text.find(',', start)
+                        player_id = int(text[start:end])
+                        return player_id
+        return None
     except Exception as e:
-        print(f"Exception get_player_price({player_id}): {e}")
+        print(f"Exception search_player({player_name}): {e}")
         return None
 
-async def search_player(name: str) -> int | None:
+async def get_player_price(player_id: int) -> int | None:
     """
-    Recherche un joueur par nom et retourne son ID Futwiz
+    Récupère le prix du joueur via son ID sur Futwiz FC26.
+    :param player_id: ID Futwiz du joueur
+    :return: Prix en crédits ou None si erreur
     """
-    url = f"{BASE_URL}/search?query={name.replace(' ', '+')}"
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}) as resp:
+            # Futwiz fournit les prix via une page JSON
+            url = f"https://www.futwiz.com/fc26/playerprices?id={player_id}"
+            async with session.get(url) as resp:
                 if resp.status != 200:
-                    print(f"Futwiz search error: Status {resp.status}")
+                    print(f"Erreur récupération prix ID {player_id}: Status {resp.status}")
                     return None
-                html = await resp.text()
-                soup = BeautifulSoup(html, "html.parser")
-                
-                # Cherche le premier lien joueur
-                player_link = soup.find("a", href=re.compile(r"/player/\d+"))
-                if not player_link:
-                    print("Futwiz search error: joueur non trouvé")
-                    return None
-                # Extrait l'ID du lien /player/12345
-                player_id = int(player_link['href'].split('/')[-1])
-                return player_id
+                data = await resp.json()
+                # Exemple simplifié: prix PS
+                price = data.get("prices", {}).get("ps", {}).get("LCPrice")
+                if price:
+                    return int(price.replace(",", ""))
+        return None
     except Exception as e:
-        print(f"Exception search_player({name}): {e}")
+        print(f"Exception get_player_price({player_id}): {e}")
         return None
