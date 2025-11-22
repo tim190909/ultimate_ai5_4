@@ -1,73 +1,61 @@
 # utils/price_fetcher.py
 import aiohttp
 from bs4 import BeautifulSoup
+from urllib.parse import quote
 
 BASE_URL = "https://www.futwiz.com/fc26"
 
 async def search_player(name: str) -> str | None:
     """
-    Recherche le joueur sur Futwiz FC26 et retourne son slug pour l'URL.
-    :param name: Nom du joueur (ex: "Harry Kane")
-    :return: slug (ex: "harry-kane/20266") ou None si introuvable
+    Transforme le nom du joueur en slug Futwiz FC26.
+    Ex: 'Harry Kane' -> 'harry-kane/20266'
     """
     try:
+        search_url = f"{BASE_URL}/search?term={quote(name)}"
         async with aiohttp.ClientSession() as session:
-            search_url = f"{BASE_URL}/search?term={name.replace(' ', '+')}"
-            async with session.get(search_url) as resp:
-                if resp.status != 200:
-                    print(f"Futwiz search error: status {resp.status}")
+            async with session.get(search_url) as response:
+                if response.status != 200:
+                    print(f"Erreur recherche Futwiz: {response.status}")
                     return None
 
-                html = await resp.text()
-                soup = BeautifulSoup(html, "html.parser")
-                link = soup.select_one("a[href*='/fc26/player/']")
-                if link:
-                    # extrait le slug après /fc26/player/
-                    slug = link['href'].split("/fc26/player/")[1].rstrip("/")
-                    return slug
-                return None
+                text = await response.text()
+                soup = BeautifulSoup(text, "html.parser")
+                
+                # Futwiz retourne une liste de joueurs dans les liens <a href="/fc26/player/...">
+                player_link = soup.find("a", href=lambda x: x and "/fc26/player/" in x)
+                if not player_link:
+                    return None
+
+                slug = player_link["href"].replace("/fc26/player/", "")
+                return slug
     except Exception as e:
-        print(f"search_player error: {e}")
+        print(f"Exception search_player({name}): {e}")
         return None
 
-
-async def get_player_price(slug: str, platform: str = "ps") -> int | None:
+async def get_player_price(slug: str) -> int | None:
     """
-    Récupère le prix du joueur sur Futwiz FC26.
-    :param slug: slug du joueur (ex: harry-kane/20266)
-    :param platform: "ps", "xbox" ou "pc"
-    :return: prix en crédits ou None
+    Récupère le prix du joueur sur Futwiz FC26 à partir du slug.
+    Ex: 'harry-kane/20266'
     """
-    platform = platform.lower()
-    if platform not in ("ps", "xbox", "pc"):
-        platform = "ps"
-
-    url = f"{BASE_URL}/player/{slug}"
     try:
+        url = f"{BASE_URL}/player/{slug}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    print(f"Futwiz player page error: status {resp.status}")
+            async with session.get(url) as response:
+                if response.status != 200:
+                    print(f"Erreur récupération prix: {response.status}")
                     return None
 
-                html = await resp.text()
-                soup = BeautifulSoup(html, "html.parser")
+                text = await response.text()
+                soup = BeautifulSoup(text, "html.parser")
 
-                # Classe CSS spécifique pour le prix PS/Xbox/PC
-                # PS = .pcprice, Xbox = .xboxprice, PC = .pcprice
-                price_selector = {
-                    "ps": ".pcprice",
-                    "xbox": ".xboxprice",
-                    "pc": ".pcprice"
-                }
-
-                price_tag = soup.select_one(price_selector[platform])
-                if not price_tag:
-                    print(f"Futwiz price not found for platform {platform}")
+                # Exemple: le prix est dans un span avec id="price"
+                price_span = soup.find("span", {"id": "price"})
+                if not price_span:
+                    print("Prix non trouvé sur la page")
                     return None
 
-                price_text = price_tag.text.replace(",", "").replace("€", "").strip()
+                price_text = price_span.text.strip().replace(",", "").replace("€", "")
                 return int(price_text)
     except Exception as e:
-        print(f"get_player_price error: {e}")
+        print(f"Exception get_player_price({slug}): {e}")
         return None
