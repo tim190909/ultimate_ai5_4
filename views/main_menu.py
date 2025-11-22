@@ -10,7 +10,7 @@ class MainMenu(View):
     # Bouton Prix
     @discord.ui.button(label="📊 Prix", style=discord.ButtonStyle.green, custom_id="menu_price")
     async def price_button(self, interaction: discord.Interaction, button: Button):
-        # Ici on demande l'ID du joueur
+        # Affiche un modal pour entrer l'ID du joueur
         await interaction.response.send_modal(PlayerIdModal())
 
     # Bouton Watchlist
@@ -35,6 +35,16 @@ class MainMenu(View):
                 messages.append(f"ID {r['player_id']}: ❌ Impossible de récupérer le prix")
 
         await interaction.response.send_message("📘 **Ta watchlist :**\n" + "\n".join(messages), ephemeral=True)
+
+    # Bouton Prédictions IA
+    @discord.ui.button(label="📈 Prédictions", style=discord.ButtonStyle.grey, custom_id="menu_predict")
+    async def predict_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("📈 *Fonction prédiction IA bientôt disponible*", ephemeral=True)
+
+    # Bouton Alertes
+    @discord.ui.button(label="🔔 Alertes", style=discord.ButtonStyle.red, custom_id="menu_alert")
+    async def alert_button(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("🔔 *Gestion des alertes bientôt disponible*", ephemeral=True)
 
 
 # Modal pour entrer l'ID du joueur
