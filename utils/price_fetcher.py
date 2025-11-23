@@ -17,14 +17,13 @@ async def search_player(name: str):
 
             html = await response.text()
 
-            # Sauvegarde *même si erreur*
-            with open("debug_futwiz.html", "w", encoding="utf-8") as f:
-                f.write(html)
-
-            print("[DEBUG] HTML sauvegardé dans debug_futwiz.html")
+            # On affiche les 2000 premiers caractères pour analyse
+            print("\n\n===== DEBUG FUTWIZ HTML (DÉBUT) =====")
+            print(html[:2000])
+            print("===== DEBUG FUTWIZ HTML (FIN) =====\n\n")
 
             if response.status != 200:
-                print("[DEBUG] Mauvais status HTTP")
+                print("[DEBUG] Mauvais HTTP status")
                 return None
 
             soup = BeautifulSoup(html, "html.parser")
@@ -51,6 +50,7 @@ async def search_player(name: str):
             print(f"[DEBUG] SLUG FINAL = {slug}")
 
             return slug
+
 async def get_player_price(slug: str):
     url = BASE_PLAYER_URL + slug
 
