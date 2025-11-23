@@ -1,13 +1,12 @@
+# utils/price_fetcher.py
 import aiohttp
 from bs4 import BeautifulSoup
+import os
 
 BASE_SEARCH_URL = "https://www.futwiz.com/en/fc26/players/search?name="
 BASE_PLAYER_URL = "https://www.futwiz.com/en/fc26/player/"
 
 async def search_player(name: str):
-    import aiohttp
-    from bs4 import BeautifulSoup
-
     url = BASE_SEARCH_URL + name.replace(" ", "+")
     print(f"[DEBUG] Recherche URL : {url}")
 
@@ -15,19 +14,22 @@ async def search_player(name: str):
         async with session.get(url) as response:
             print(f"[DEBUG] Status : {response.status}")
 
-            html = await response.text()
-
-            # On affiche les 2000 premiers caractères pour analyse
-            print("\n\n===== DEBUG FUTWIZ HTML (DÉBUT) =====")
-            print(html[:2000])
-            print("===== DEBUG FUTWIZ HTML (FIN) =====\n\n")
-
             if response.status != 200:
-                print("[DEBUG] Mauvais HTTP status")
+                print("[DEBUG] Mauvais status")
                 return None
 
-            soup = BeautifulSoup(html, "html.parser")
+            html = await response.text()
 
+            # Crée le dossier logs s'il n'existe pas
+            os.makedirs("logs", exist_ok=True)
+
+            # Sauvegarde du HTML pour debug
+            debug_path = os.path.join("logs", "debug_futwiz.html")
+            with open(debug_path, "w", encoding="utf-8") as f:
+                f.write(html)
+            print(f"[DEBUG] HTML sauvegardé dans {debug_path}")
+
+            soup = BeautifulSoup(html, "html.parser")
             table = soup.find("table", class_="searchTable")
             print(f"[DEBUG] searchTable trouvée ? {table is not None}")
 
@@ -52,6 +54,7 @@ async def search_player(name: str):
             return slug
 
 async def get_player_price(slug: str):
+    """Scrape Futwiz FC26 pour récupérer un prix."""
     url = BASE_PLAYER_URL + slug
 
     async with aiohttp.ClientSession() as session:
@@ -62,9 +65,13 @@ async def get_player_price(slug: str):
             html = await response.text()
             soup = BeautifulSoup(html, "html.parser")
 
-            # 🔥 Futwiz FC26 : nouveau bloc prix
-            box = soup.select_one("div.playerprices span.price-num")
-            if not box:
+            # Futwiz FC26 affiche le prix dans un bloc ".playerprices"
+            price_box = soup.find("div", class_="playerprices")
+            if not price_box:
                 return None
 
-            return box.text.strip()
+            price = price_box.find("span", class_="price-num")
+            if not price:
+                return None
+
+            return price.text.strip()
