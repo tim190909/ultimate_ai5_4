@@ -1,4 +1,3 @@
-# utils/price_fetcher.py
 import aiohttp
 from bs4 import BeautifulSoup
 import os
@@ -20,11 +19,11 @@ async def search_player(name: str):
 
             html = await response.text()
 
-            # Crée le dossier logs s'il n'existe pas
-            os.makedirs("logs", exist_ok=True)
+            # Crée le dossier logs s'il n'existe pas et prend chemin absolu
+            logs_dir = os.path.join(os.path.dirname(__file__), "..", "logs")
+            os.makedirs(logs_dir, exist_ok=True)
 
-            # Sauvegarde du HTML pour debug
-            debug_path = os.path.join("logs", "debug_futwiz.html")
+            debug_path = os.path.join(logs_dir, "debug_futwiz.html")
             with open(debug_path, "w", encoding="utf-8") as f:
                 f.write(html)
             print(f"[DEBUG] HTML sauvegardé dans {debug_path}")
