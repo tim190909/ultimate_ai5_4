@@ -6,34 +6,53 @@ BASE_PLAYER_URL = "https://www.futwiz.com/en/fc26/player/"
 
 
 async def search_player(name: str):
-    """Recherche un joueur par son nom sur Futwiz FC26 et retourne son slug/id."""
+    import aiohttp
+    from bs4 import BeautifulSoup
+
+    url = BASE_SEARCH_URL + name.replace(" ", "+")
+    print(f"[DEBUG] Recherche URL : {url}")
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(BASE_SEARCH_URL + name.replace(" ", "+")) as response:
+        async with session.get(url) as response:
+            print(f"[DEBUG] Status : {response.status}")
+
             if response.status != 200:
+                print("[DEBUG] Mauvais status")
                 return None
 
             html = await response.text()
+
+            # Sauvegarde pour debug
+            with open("debug_futwiz.html", "w", encoding="utf-8") as f:
+                f.write(html)
+
+            print("[DEBUG] HTML reçu depuis Futwiz (100 premiers caractères) :")
+            print(html[:200])
+
+            from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, "html.parser")
 
-            # Futwiz met les résultats dans un tableau .searchTable
             table = soup.find("table", class_="searchTable")
+            print(f"[DEBUG] searchTable trouvée ? {table is not None}")
+
             if not table:
                 return None
 
-            # Le premier résultat suffit
             first = table.find("a")
+            print(f"[DEBUG] Premier lien trouvé : {first}")
+
             if not first:
                 return None
 
-            # Lien exemple :
-            # /en/fc26/player/harry-kane/20266
             href = first.get("href")
+            print(f"[DEBUG] href = {href}")
 
             if "/player/" not in href:
                 return None
 
-            # On récupère juste le slug complet : harry-kane/20266
             slug = href.split("/player/")[1]
+            print(f"[DEBUG] SLUG FINAL = {slug}")
+
             return slug
 
 
